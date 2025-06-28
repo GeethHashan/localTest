@@ -1,0 +1,75 @@
+{
+  "name": "sli-inspire-server",
+  "version": "1.0.0",
+  "description": "Backend server for SLI Inspire - Higher Education Course Discovery Platform",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.ts",
+    "dev": "nodemon index.ts",
+    "dev:ts": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "db:migrate": "npx prisma migrate dev",
+    "db:migrate:prod": "npx prisma migrate deploy",
+    "db:generate": "npx prisma generate",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "npx prisma studio",
+    "db:reset": "npx prisma migrate reset --force",
+    "db:push": "npx prisma db push",
+    "db:pull": "npx prisma db pull",
+    "prisma:queries": "ts-node ./src/queries.ts",
+    "prisma:caching": "ts-node ./src/caching.ts",
+    "lint": "eslint . --ext .ts,.js",
+    "lint:fix": "eslint . --ext .ts,.js --fix",
+    "format": "prettier --write .",
+    "clean": "rm -rf dist node_modules package-lock.json",
+    "postinstall": "npx prisma generate"
+  },
+  "keywords": [
+    "education",
+    "courses",
+    "sri-lanka",
+    "higher-education",
+    "pern-stack",
+    "nodejs",
+    "express",
+    "prisma",
+    "postgresql"
+  ],
+  "author": "Your Name",
+  "dependencies": {
+    "@prisma/client": "^6.10.1",
+    "@prisma/extension-accelerate": "^2.0.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "16.5.0",
+    "express": "^4.21.2",
+    "helmet": "^8.1.0",
+    "joi": "^17.9.0",
+    "jsonwebtoken": "^9.0.0",
+    "prisma": "^6.10.1",
+    "winston": "^3.10.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.23",
+    "@types/jest": "^30.0.0",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^24.0.4",
+    "nodemon": "^3.0.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
