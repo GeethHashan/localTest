@@ -6,6 +6,7 @@ import searchReducer from './slices/searchSlice';
 import userReducer from './slices/userSlice';
 import authReducer from './slices/authSlice';
 
+
 export const store = configureStore({
   reducer: {
     universities: universitiesReducer,
@@ -15,6 +16,13 @@ export const store = configureStore({
     user: userReducer,
     auth: authReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+      },
+    }),
+  devTools: process.env.NODE_ENV !== 'production',
 });
 
 export type RootState = ReturnType<typeof store.getState>;
