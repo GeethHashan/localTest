@@ -1,5 +1,8 @@
-// client/src/services/apiService.ts
+// client/src/services/apiService.ts - Updated with Subject service
 const API_BASE_URL = 'http://localhost:5000/api';
+
+// Import types
+import type { Subject, SubjectsApiResponse } from '../types';
 
 // Types for API responses
 export interface Course {
@@ -51,6 +54,81 @@ export interface ApiResponse<T> {
   count?: number;
 }
 
+// Subject Service
+export const subjectService = {
+  // Get all subjects (with optional level filter)
+  getAllSubjects: async (level?: 'AL' | 'OL'): Promise<SubjectsApiResponse> => {
+    try {
+      const url = level 
+        ? `${API_BASE_URL}/subjects?level=${level}`
+        : `${API_BASE_URL}/subjects`;
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      throw new Error('Failed to fetch subjects');
+    }
+  },
+
+  // Get AL subjects specifically
+  getALSubjects: async (): Promise<SubjectsApiResponse> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subjects/al`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching AL subjects:', error);
+      throw new Error('Failed to fetch AL subjects');
+    }
+  },
+
+  // Get OL subjects specifically
+  getOLSubjects: async (): Promise<SubjectsApiResponse> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subjects/ol`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching OL subjects:', error);
+      throw new Error('Failed to fetch OL subjects');
+    }
+  },
+
+  // Get subject by ID
+  getSubjectById: async (id: number): Promise<{ success: boolean; data?: Subject; error?: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subjects/${id}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching subject:', error);
+      throw new Error('Failed to fetch subject');
+    }
+  }
+};
+
 // Course Service
 export const courseService = {
   // Search courses
@@ -87,7 +165,7 @@ export const courseService = {
     }
   },
 
-  // Get course by ID (you'll need to create this endpoint)
+  // Get course by ID
   getCourseById: async (id: number): Promise<ApiResponse<Course>> => {
     try {
       const response = await fetch(`${API_BASE_URL}/courses/${id}`);
@@ -124,7 +202,7 @@ export const universityService = {
     }
   },
 
-  // Get university by ID (you'll need to create this endpoint)
+  // Get university by ID
   getUniversityById: async (id: number): Promise<ApiResponse<University>> => {
     try {
       const response = await fetch(`${API_BASE_URL}/universities/${id}`);
@@ -201,8 +279,8 @@ export const savedCoursesService = {
     }
   },
 
-  // Update notes for saved course
-  updateNotes: async (bookmarkId: number, notes: string): Promise<ApiResponse<any>> => {
+  // Update bookmark notes
+  updateBookmarkNotes: async (bookmarkId: number, notes: string): Promise<ApiResponse<any>> => {
     try {
       const response = await fetch(`${API_BASE_URL}/saved-courses/${bookmarkId}/notes`, {
         method: 'PUT',
@@ -219,13 +297,13 @@ export const savedCoursesService = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error updating notes:', error);
-      throw new Error('Failed to update notes');
+      console.error('Error updating bookmark notes:', error);
+      throw new Error('Failed to update bookmark notes');
     }
   },
 
-  // Remove bookmark
-  removeBookmark: async (bookmarkId: number): Promise<ApiResponse<any>> => {
+  // Delete bookmark
+  deleteBookmark: async (bookmarkId: number): Promise<ApiResponse<any>> => {
     try {
       const response = await fetch(`${API_BASE_URL}/saved-courses/${bookmarkId}`, {
         method: 'DELETE',
@@ -238,35 +316,8 @@ export const savedCoursesService = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error removing bookmark:', error);
-      throw new Error('Failed to remove bookmark');
+      console.error('Error deleting bookmark:', error);
+      throw new Error('Failed to delete bookmark');
     }
   }
-};
-
-// Health check service
-export const healthService = {
-  checkHealth: async (): Promise<ApiResponse<any>> => {
-    try {
-      const response = await fetch(`http://localhost:5000/health`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error checking health:', error);
-      throw new Error('Failed to check server health');
-    }
-  }
-};
-
-// Export all services
-export const apiService = {
-  courses: courseService,
-  universities: universityService,
-  savedCourses: savedCoursesService,
-  health: healthService
 };

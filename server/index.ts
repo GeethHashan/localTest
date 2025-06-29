@@ -1,13 +1,14 @@
+// server/index.ts - Updated with subjects route
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 
-
 // Import database configuration and routes
 import { prisma, testConnection } from './src/config/database';
 import savedCoursesRoutes from './src/routes/savedCourses';
 import simpleSearchRoutes from './src/routes/simpleSearch';
+import subjectsRoutes from './src/routes/subjects'; // Add this import
 
 // Load environment variables
 dotenv.config();
@@ -20,7 +21,11 @@ app.use(helmet()); // Security headers
 app.use(cors()); // Enable CORS
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
+// Mount API routes
 app.use('/api/simple-search', simpleSearchRoutes);
+app.use('/api/saved-courses', savedCoursesRoutes);
+app.use('/api/subjects', subjectsRoutes); // Add this line
 
 // Test database connection on startup
 testConnection();
@@ -35,7 +40,10 @@ app.get('/', (req: Request, res: Response) => {
       health: '/health',
       universities: '/api/universities',
       courses: '/api/courses',
-      savedCourses: '/api/saved-courses'
+      savedCourses: '/api/saved-courses',
+      subjects: '/api/subjects', // Add this
+      subjectsAL: '/api/subjects/al', // Add this
+      subjectsOL: '/api/subjects/ol' // Add this
     }
   });
 });
@@ -143,9 +151,6 @@ app.get('/api/courses', async (req: Request, res: Response) => {
   }
 });
 
-// Mount the real saved courses API routes
-app.use('/api/saved-courses', savedCoursesRoutes);
-
 // 404 handler
 app.all('*', (req: Request, res: Response) => {
   res.status(404).json({ 
@@ -156,6 +161,10 @@ app.all('*', (req: Request, res: Response) => {
       'GET /api/test',
       'GET /api/universities',
       'GET /api/courses',
+      'GET /api/subjects',
+      'GET /api/subjects/al',
+      'GET /api/subjects/ol',
+      'GET /api/subjects/:id',
       'GET /api/saved-courses/:userId',
       'POST /api/saved-courses/toggle',
       'GET /api/saved-courses/check/:userId/:courseId',
@@ -178,6 +187,9 @@ app.listen(PORT, () => {
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
   console.log(`🎓 Universities: http://localhost:${PORT}/api/universities`);
   console.log(`📚 Courses: http://localhost:${PORT}/api/courses`);
+  console.log(`📖 Subjects: http://localhost:${PORT}/api/subjects`);
+  console.log(`📖 AL Subjects: http://localhost:${PORT}/api/subjects/al`);
+  console.log(`📖 OL Subjects: http://localhost:${PORT}/api/subjects/ol`);
   console.log(`🔖 Saved Courses: http://localhost:${PORT}/api/saved-courses/1`);
   console.log(`🎯 Available routes: http://localhost:${PORT}/nonexistent`);
 });

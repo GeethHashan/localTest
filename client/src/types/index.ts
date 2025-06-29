@@ -1,4 +1,31 @@
-// client/src/types/index.ts - Updated with compatible Course types
+// client/src/types/index.ts - Updated with Subject types
+
+// Subject interface matching database schema
+export interface Subject {
+  id: number;
+  code: string;
+  name: string;
+  level: 'AL' | 'OL';
+  isActive?: boolean;
+}
+
+// Subject API response types
+export interface SubjectsApiResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  data: Subject[];
+  error?: string;
+  details?: string;
+}
+
+// Updated QualificationEntry to use Subject ID instead of string
+export interface QualificationEntry {
+  id: string;
+  subjectId: number; // Changed from subject: string
+  subject: string; // Keep this for display purposes
+  grade: string;
+}
 
 // Re-export API service types for convenience
 export type {
@@ -91,6 +118,13 @@ export interface UserQualifications {
   }[];
   otherQualifications: string[];
 }
+
+// Updated grades arrays for better type safety
+export const AL_GRADES = ['A', 'B', 'C', 'S'] as const;
+export const OL_GRADES = ['A', 'B', 'C', 'S'] as const;
+
+export type ALGrade = typeof AL_GRADES[number];
+export type OLGrade = typeof OL_GRADES[number];
 
 // Import types from savedCourses.ts
 export type {
@@ -208,4 +242,13 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
+}
+
+// Subject state for Redux (if using Redux)
+export interface SubjectState {
+  alSubjects: Subject[];
+  olSubjects: Subject[];
+  loading: boolean;
+  error: string | null;
+  lastFetched: string | null;
 }
