@@ -7,7 +7,17 @@ import {
   removeSavedCourse,
   clearErrors
 } from '../store/slices/coursesSlice';
-import { SavedCourse as ApiSavedCourse } from '../services/apiService'; // Import from API service
+import {
+  fetchCurrentMonthEvents,
+  fetchUpcomingEvents,
+  navigateCalendarMonth,
+  goToToday,
+  addReminder,
+  removeReminder,
+  updateEventReminderStatus,
+  clearEventsErrors
+} from '../store/slices/eventsSlice'; // Add events imports
+import { SavedCourse as ApiSavedCourse } from '../services/apiService';
 import { Settings, HelpCircle, Bookmark, User, Home, Calendar as CalendarIcon, AlertCircle, Loader2, Trash2 } from 'lucide-react';
 import Logo from '../assets/images/logo.png';
 import Calendar, { NewsEvent, Reminder } from '../components/Calendar';
@@ -25,75 +35,46 @@ const UserDashboard: React.FC<DashboardProps> = ({ onGoHome }) => {
     savedCoursesError
   } = useAppSelector((state) => state.courses);
   
+  // Events state from Redux
+  const {
+    currentMonthEvents,
+    upcomingEvents,
+    reminders,
+    currentMonthLoading,
+    upcomingEventsLoading,
+    currentMonthError,
+    upcomingEventsError,
+    currentViewYear,
+    currentViewMonth
+  } = useAppSelector((state) => state.events);
+  
   // Local loading state for bookmark operations
   const [bookmarkLoading, setBookmarkLoading] = useState<Record<number, boolean>>({});
   
   // Tab state management
   const [activeTab, setActiveTab] = useState<'saved-courses' | 'news-calendar'>('saved-courses');
 
-  // Calendar events state (keeping your existing logic)
-  const [newsEvents, setNewsEvents] = useState<NewsEvent[]>([
-    {
-      id: '1',
-      title: 'University of Colombo Application Deadline',
-      date: '2025-07-15',
-      type: 'application',
-      description: 'Last date to submit applications for undergraduate programs',
-      hasReminder: false
-    },
-    {
-      id: '2',
-      title: 'A/L Results Release',
-      date: '2025-07-20',
-      type: 'result',
-      description: 'Advanced Level examination results will be released',
-      hasReminder: false
-    },
-    {
-      id: '3',
-      title: 'University Aptitude Test',
-      date: '2025-08-05',
-      type: 'exam',
-      description: 'Aptitude test for engineering faculties',
-      hasReminder: false
-    },
-    {
-      id: '4',
-      title: 'University Open Day',
-      date: '2025-08-12',
-      type: 'general',
-      description: 'Visit campuses and meet faculty members',
-      hasReminder: false
-    },
-    {
-      id: '5',
-      title: 'Medicine Faculty Interview',
-      date: '2025-06-28',
-      type: 'exam',
-      description: 'Interview session for medical faculty applicants',
-      hasReminder: false
-    }
-  ]);
-
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-
-  // Fetch saved courses when component mounts
+  // Fetch data when component mounts
   useEffect(() => {
-    // Use a valid small user ID that exists in your database
-    // From your sample data script, user IDs should be 1, 2, 3
-    const validUserId = 1; // Use actual user ID from your sample data
+    // Fetch saved courses
+    const validUserId = 1;
     dispatch(fetchSavedCourses(validUserId));
     
-    // Original code (commented out - the user ID was too large):
-    // if (user?.id) {
-    //   dispatch(fetchSavedCourses(user.id));
-    // }
+    // Fetch events data
+    dispatch(fetchCurrentMonthEvents());
+    dispatch(fetchUpcomingEvents(5));
   }, [dispatch]);
+
+  // Fetch events when calendar month changes
+  useEffect(() => {
+    dispatch(fetchCurrentMonthEvents());
+  }, [dispatch, currentViewYear, currentViewMonth]);
 
   // Clear errors when component unmounts
   useEffect(() => {
     return () => {
       dispatch(clearErrors());
+      dispatch(clearEventsErrors());
     };
   }, [dispatch]);
 
@@ -111,10 +92,7 @@ const UserDashboard: React.FC<DashboardProps> = ({ onGoHome }) => {
   };
 
   const handleToggleBookmark = async (courseId: number) => {
-    // Use a valid small user ID (1, 2, or 3 from your sample data)
     const validUserId = 1;
-    
-    // Set loading state for this specific course
     setBookmarkLoading(prev => ({ ...prev, [courseId]: true }));
     
     try {
@@ -122,21 +100,15 @@ const UserDashboard: React.FC<DashboardProps> = ({ onGoHome }) => {
         courseId, 
         userId: validUserId 
       })).unwrap();
-      
-      // Refresh the saved courses list
       dispatch(fetchSavedCourses(validUserId));
     } catch (error) {
       console.error('Failed to toggle bookmark:', error);
     } finally {
-      // Clear loading state
       setBookmarkLoading(prev => ({ ...prev, [courseId]: false }));
     }
   };
 
   const handleRemoveCourse = async (bookmarkId: number) => {
-    // Temporary fix for testing - using hardcoded user ID
-    const userId = 1;
-    
     try {
       await dispatch(removeSavedCourse(bookmarkId)).unwrap();
     } catch (error) {
@@ -145,22 +117,59 @@ const UserDashboard: React.FC<DashboardProps> = ({ onGoHome }) => {
   };
 
   const handleRefreshCourses = () => {
-    // Use a valid small user ID (1, 2, or 3 from your sample data)
     const validUserId = 1;
     dispatch(fetchSavedCourses(validUserId));
-    
-    // Original code (commented out until auth system provides user.id):
-    // if (user?.id) {
-    //   dispatch(fetchSavedCourses(user.id));
-    // }
   };
 
+  // Event handlers for calendar
   const handleEventUpdate = (updatedEvents: NewsEvent[]) => {
-    setNewsEvents(updatedEvents);
+    // This is handled by Redux now, but we keep the interface for the Calendar component
+    console.log('Events updated via Redux');
   };
 
   const handleReminderUpdate = (updatedReminders: Reminder[]) => {
-    setReminders(updatedReminders);
+    // Handle reminder updates - you might want to persist these to the backend later
+    updatedReminders.forEach(reminder => {
+      const existingReminder = reminders.find(r => r.id === reminder.id);
+      if (!existingReminder) {
+        dispatch(addReminder(reminder));
+        // Update the event to show it has a reminder
+        dispatch(updateEventReminderStatus({
+          eventId: reminder.eventId,
+          hasReminder: true
+        }));
+      }
+    });
+    
+    // Remove reminders that were deleted
+    reminders.forEach(existingReminder => {
+      const stillExists = updatedReminders.find(r => r.id === existingReminder.id);
+      if (!stillExists) {
+        dispatch(removeReminder(existingReminder.id));
+        // Check if this was the last reminder for the event
+        const hasOtherReminders = updatedReminders.some(r => r.eventId === existingReminder.eventId);
+        dispatch(updateEventReminderStatus({
+          eventId: existingReminder.eventId,
+          hasReminder: hasOtherReminders
+        }));
+      }
+    });
+  };
+
+  // Helper function for event type colors (same as in Calendar component)
+  const getEventTypeColor = (type: NewsEvent['type']) => {
+    switch (type) {
+      case 'application':
+        return 'bg-blue-100 text-blue-800';
+      case 'exam':
+        return 'bg-red-100 text-red-800';
+      case 'result':
+        return 'bg-green-100 text-green-800';
+      case 'general':
+        return 'bg-purple-100 text-purple-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const renderSavedCoursesContent = () => (
@@ -394,19 +403,85 @@ const UserDashboard: React.FC<DashboardProps> = ({ onGoHome }) => {
     </div>
   );
 
+  const renderCalendarContent = () => (
+    <div>
+      {/* Loading State for Calendar */}
+      {currentMonthLoading && (
+        <div className="flex justify-center items-center py-12">
+          <div className="flex items-center space-x-3">
+            <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+            <span className="text-gray-600">Loading calendar events...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error State for Calendar */}
+      {(currentMonthError || upcomingEventsError) && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-3">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <div>
+            <h3 className="font-medium text-red-800">Error Loading Events</h3>
+            <p className="text-sm text-red-600">
+              {currentMonthError || upcomingEventsError}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming Events Section */}
+      {!upcomingEventsLoading && upcomingEvents.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Upcoming Events</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {upcomingEvents.slice(0, 3).map((event) => (
+              <div
+                key={event.id}
+                className="bg-white rounded-lg shadow-md border border-gray-200 p-4 hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-800 line-clamp-2">
+                    {event.title}
+                  </h3>
+                  <span className={`px-2 py-1 text-xs rounded-full ${getEventTypeColor(event.type)}`}>
+                    {event.type}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                  {event.description}
+                </p>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>{new Date(event.date).toLocaleDateString()}</span>
+                  {event.hasReminder && (
+                    <span className="flex items-center">
+                      <AlertCircle className="w-3 h-3 mr-1" />
+                      Reminder set
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Calendar Component */}
+      {!currentMonthLoading && (
+        <Calendar
+          events={currentMonthEvents}
+          reminders={reminders}
+          onEventUpdate={handleEventUpdate}
+          onReminderUpdate={handleReminderUpdate}
+        />
+      )}
+    </div>
+  );
+
   const renderMainContent = () => {
     if (activeTab === 'saved-courses') {
       return renderSavedCoursesContent();
     }
 
-    return (
-      <Calendar 
-        events={newsEvents}
-        reminders={reminders}
-        onEventUpdate={handleEventUpdate}
-        onReminderUpdate={handleReminderUpdate}
-      />
-    );
+    return renderCalendarContent();
   };
 
   return (

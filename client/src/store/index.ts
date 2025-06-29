@@ -6,7 +6,8 @@ import blogReducer from './slices/blogSlice';
 import searchReducer from './slices/searchSlice';
 import userReducer from './slices/userSlice';
 import authReducer from './slices/authSlice';
-import subjectsReducer from './slices/subjectSlice'; // Add this import
+import subjectsReducer from './slices/subjectSlice';
+import eventsReducer from './slices/eventsSlice'; 
 
 export const store = configureStore({
   reducer: {
@@ -16,7 +17,8 @@ export const store = configureStore({
     search: searchReducer,
     user: userReducer,
     auth: authReducer,
-    subjects: subjectsReducer, // Add this line
+    subjects: subjectsReducer,
+    events: eventsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

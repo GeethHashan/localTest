@@ -1,4 +1,4 @@
-// server/index.ts - Updated with subjects route
+// server/index.ts - Updated with events route
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -8,7 +8,8 @@ import dotenv from 'dotenv';
 import { prisma, testConnection } from './src/config/database';
 import savedCoursesRoutes from './src/routes/savedCourses';
 import simpleSearchRoutes from './src/routes/simpleSearch';
-import subjectsRoutes from './src/routes/subjects'; // Add this import
+import subjectsRoutes from './src/routes/subjects';
+import eventsRoutes from './src/routes/events'; // Add this import
 
 // Load environment variables
 dotenv.config();
@@ -25,7 +26,8 @@ app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 // Mount API routes
 app.use('/api/simple-search', simpleSearchRoutes);
 app.use('/api/saved-courses', savedCoursesRoutes);
-app.use('/api/subjects', subjectsRoutes); // Add this line
+app.use('/api/subjects', subjectsRoutes);
+app.use('/api/events', eventsRoutes); // Add this line
 
 // Test database connection on startup
 testConnection();
@@ -41,9 +43,12 @@ app.get('/', (req: Request, res: Response) => {
       universities: '/api/universities',
       courses: '/api/courses',
       savedCourses: '/api/saved-courses',
-      subjects: '/api/subjects', // Add this
-      subjectsAL: '/api/subjects/al', // Add this
-      subjectsOL: '/api/subjects/ol' // Add this
+      subjects: '/api/subjects',
+      subjectsAL: '/api/subjects/al',
+      subjectsOL: '/api/subjects/ol',
+      events: '/api/events', // Add this
+      eventsUpcoming: '/api/events/filter/upcoming', // Add this
+      eventsByMonth: '/api/events/by-month/:year/:month' // Add this
     }
   });
 });
@@ -79,145 +84,56 @@ app.get('/api/test', async (req: Request, res: Response) => {
     res.json({
       message: 'Database query successful with Prisma',
       version: result[0]?.version || 'Unknown',
-      orm: 'prisma'
+      timestamp: new Date().toISOString()
     });
   } catch (error: any) {
-    console.error('Database query error:', error);
-    res.status(500).json({ error: 'Database query failed' });
+    res.status(500).json({
+      error: 'Database query failed',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
-});
-
-// Example route to test your universities
-app.get('/api/universities', async (req: Request, res: Response) => {
-  try {
-    const universities = await prisma.university.findMany({
-      where: {
-        isActive: true
-      },
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        website: true,
-        address: true
-      },
-      take: 10 // Limit to 10 for testing
-    });
-    
-    res.json({
-      message: 'Universities fetched successfully',
-      count: universities.length,
-      data: universities
-    });
-  } catch (error: any) {
-    console.error('Universities query error:', error);
-    res.status(500).json({ error: 'Failed to fetch universities' });
-  }
-});
-
-// Example route to test your courses
-app.get('/api/courses', async (req: Request, res: Response) => {
-  try {
-    const courses = await prisma.course.findMany({
-      where: {
-        isActive: true
-      },
-      include: {
-        university: {
-          select: {
-            id: true,
-            name: true,
-            type: true
-          }
-        },
-        faculty: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      },
-      take: 10 // Limit to 10 for testing
-    });
-    
-    res.json({
-      message: 'Courses fetched successfully',
-      count: courses.length,
-      data: courses
-    });
-  } catch (error: any) {
-    console.error('Courses query error:', error);
-    res.status(500).json({ error: 'Failed to fetch courses' });
-  }
-});
-
-// 404 handler
-app.all('*', (req: Request, res: Response) => {
-  res.status(404).json({ 
-    error: 'Route not found',
-    availableRoutes: [
-      'GET /',
-      'GET /health',
-      'GET /api/test',
-      'GET /api/universities',
-      'GET /api/courses',
-      'GET /api/subjects',
-      'GET /api/subjects/al',
-      'GET /api/subjects/ol',
-      'GET /api/subjects/:id',
-      'GET /api/saved-courses/:userId',
-      'POST /api/saved-courses/toggle',
-      'GET /api/saved-courses/check/:userId/:courseId',
-      'PUT /api/saved-courses/:bookmarkId/notes',
-      'DELETE /api/saved-courses/:bookmarkId'
-    ]
-  });
 });
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 404 handler
+app.use('*', (req: Request, res: Response) => {
+  res.status(404).json({
+    error: 'Route not found',
+    message: `The route ${req.method} ${req.originalUrl} does not exist`,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`📁 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-  console.log(`🎓 Universities: http://localhost:${PORT}/api/universities`);
-  console.log(`📚 Courses: http://localhost:${PORT}/api/courses`);
-  console.log(`📖 Subjects: http://localhost:${PORT}/api/subjects`);
-  console.log(`📖 AL Subjects: http://localhost:${PORT}/api/subjects/al`);
-  console.log(`📖 OL Subjects: http://localhost:${PORT}/api/subjects/ol`);
-  console.log(`🔖 Saved Courses: http://localhost:${PORT}/api/saved-courses/1`);
-  console.log(`🎯 Available routes: http://localhost:${PORT}/nonexistent`);
+  console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`📚 API Documentation: http://localhost:${PORT}/`);
+  console.log(`📅 Events API: http://localhost:${PORT}/api/events`);
+  console.log(`🔍 Simple Search: http://localhost:${PORT}/api/simple-search`);
+  console.log(`📖 Saved Courses: http://localhost:${PORT}/api/saved-courses`);
+  console.log(`📚 Subjects: http://localhost:${PORT}/api/subjects`);
+  console.log('');
+  console.log('🌟 Available Events Endpoints:');
+  console.log('   GET    /api/events - Get all events');
+  console.log('   POST   /api/events - Create new event');
+  console.log('   GET    /api/events/:id - Get event by ID');
+  console.log('   PUT    /api/events/:id - Update event');
+  console.log('   DELETE /api/events/:id - Delete event');
+  console.log('   GET    /api/events/filter/upcoming - Get upcoming events');
+  console.log('   GET    /api/events/by-month/:year/:month - Get monthly events');
+  console.log('');
+  console.log('💾 Database: PostgreSQL with Prisma ORM');
+  console.log('🔗 CORS: Enabled for all origins');
+  console.log('🛡️  Security: Helmet middleware active');
 });
-
-// Graceful shutdown with Prisma
-process.on('SIGINT', async () => {
-  console.log('\n🔄 Received SIGINT. Graceful shutdown...');
-  try {
-    await prisma.$disconnect();
-    console.log('✅ Database connection closed');
-    process.exit(0);
-  } catch (error) {
-    console.error('❌ Error during shutdown:', error);
-    process.exit(1);
-  }
-});
-
-process.on('SIGTERM', async () => {
-  console.log('\n🔄 Received SIGTERM. Graceful shutdown...');
-  try {
-    await prisma.$disconnect();
-    console.log('✅ Database connection closed');
-    process.exit(0);
-  } catch (error) {
-    console.error('❌ Error during shutdown:', error);
-    process.exit(1);
-  }
-});
-
-// Export for testing purposes
-export default app;
