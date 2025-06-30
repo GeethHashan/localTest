@@ -403,8 +403,7 @@ const Calendar: React.FC<CalendarProps> = ({
         </div>
       )}
 
-     // client/src/components/Calendar.tsx - Part 2: Modals and Helper Functions
-// This is the continuation of Part 1 - add this after the loading overlay
+     
 
       {/* Event Details Modal */}
       {showEventDetails && selectedEvent && (

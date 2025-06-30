@@ -1,15 +1,16 @@
-// server/index.ts - Updated with events route
+// server/index.ts - Enhanced with better graceful shutdown
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import { Server } from 'http';
 
 // Import database configuration and routes
-import { prisma, testConnection } from './src/config/database';
+import { prisma, testConnection, gracefulShutdown } from './src/config/database';
 import savedCoursesRoutes from './src/routes/savedCourses';
 import simpleSearchRoutes from './src/routes/simpleSearch';
 import subjectsRoutes from './src/routes/subjects';
-import eventsRoutes from './src/routes/events'; // Add this import
+import eventsRoutes from './src/routes/events';
 
 // Load environment variables
 dotenv.config();
@@ -27,7 +28,7 @@ app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 app.use('/api/simple-search', simpleSearchRoutes);
 app.use('/api/saved-courses', savedCoursesRoutes);
 app.use('/api/subjects', subjectsRoutes);
-app.use('/api/events', eventsRoutes); // Add this line
+app.use('/api/events', eventsRoutes);
 
 // Test database connection on startup
 testConnection();
@@ -46,9 +47,9 @@ app.get('/', (req: Request, res: Response) => {
       subjects: '/api/subjects',
       subjectsAL: '/api/subjects/al',
       subjectsOL: '/api/subjects/ol',
-      events: '/api/events', // Add this
-      eventsUpcoming: '/api/events/filter/upcoming', // Add this
-      eventsByMonth: '/api/events/by-month/:year/:month' // Add this
+      events: '/api/events',
+      eventsUpcoming: '/api/events/filter/upcoming',
+      eventsByMonth: '/api/events/by-month/:year/:month'
     }
   });
 });
@@ -75,26 +76,6 @@ app.get('/health', async (req: Request, res: Response) => {
   }
 });
 
-// Example API route using Prisma
-app.get('/api/test', async (req: Request, res: Response) => {
-  try {
-    // Test Prisma query
-    const result = await prisma.$queryRaw`SELECT version()` as any[];
-    
-    res.json({
-      message: 'Database query successful with Prisma',
-      version: result[0]?.version || 'Unknown',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      error: 'Database query failed',
-      message: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled error:', err);
@@ -109,31 +90,132 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 app.use('*', (req: Request, res: Response) => {
   res.status(404).json({
     error: 'Route not found',
-    message: `The route ${req.method} ${req.originalUrl} does not exist`,
+    message: `Cannot ${req.method} ${req.originalUrl}`,
     timestamp: new Date().toISOString()
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`📚 API Documentation: http://localhost:${PORT}/`);
-  console.log(`📅 Events API: http://localhost:${PORT}/api/events`);
-  console.log(`🔍 Simple Search: http://localhost:${PORT}/api/simple-search`);
-  console.log(`📖 Saved Courses: http://localhost:${PORT}/api/saved-courses`);
-  console.log(`📚 Subjects: http://localhost:${PORT}/api/subjects`);
-  console.log('');
-  console.log('🌟 Available Events Endpoints:');
-  console.log('   GET    /api/events - Get all events');
-  console.log('   POST   /api/events - Create new event');
-  console.log('   GET    /api/events/:id - Get event by ID');
-  console.log('   PUT    /api/events/:id - Update event');
-  console.log('   DELETE /api/events/:id - Delete event');
-  console.log('   GET    /api/events/filter/upcoming - Get upcoming events');
-  console.log('   GET    /api/events/by-month/:year/:month - Get monthly events');
-  console.log('');
-  console.log('💾 Database: PostgreSQL with Prisma ORM');
-  console.log('🔗 CORS: Enabled for all origins');
-  console.log('🛡️  Security: Helmet middleware active');
+// Enhanced server startup and graceful shutdown
+let server: Server;
+
+const startServer = async (): Promise<void> => {
+  try {
+    server = app.listen(PORT, () => {
+      console.log('🚀 Server started successfully');
+      console.log(`📍 Server running on http://localhost:${PORT}`);
+      console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log('📡 Available endpoints:');
+      console.log('   GET  / - Server info');
+      console.log('   GET  /health - Health check');
+      console.log('   GET  /api/simple-search - Course search');
+      console.log('   GET  /api/subjects - Subjects');
+      console.log('   GET  /api/events - Events');
+      console.log('   GET  /api/saved-courses - Saved courses');
+      console.log('✅ Server ready to accept connections');
+    });
+
+    // Handle server errors
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use`);
+        console.log('💡 Try running: taskkill /f /im node.exe (Windows) or killall node (Mac/Linux)');
+        process.exit(1);
+      } else {
+        console.error('❌ Server error:', error);
+        process.exit(1);
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Enhanced graceful shutdown function
+const performGracefulShutdown = async (signal: string): Promise<void> => {
+  console.log(`\n🛑 Received ${signal} signal. Starting graceful shutdown...`);
+  
+  const shutdownTimeout = setTimeout(() => {
+    console.error('❌ Graceful shutdown timed out. Forcing exit...');
+    process.exit(1);
+  }, 10000); // 10 second timeout
+
+  try {
+    // Stop accepting new connections
+    if (server) {
+      console.log('📴 Closing HTTP server...');
+      await new Promise<void>((resolve, reject) => {
+        server.close((err) => {
+          if (err) {
+            console.error('❌ Error closing server:', err);
+            reject(err);
+          } else {
+            console.log('✅ HTTP server closed');
+            resolve();
+          }
+        });
+      });
+    }
+
+    // Close database connections
+    console.log('🔌 Closing database connections...');
+    await gracefulShutdown();
+
+    clearTimeout(shutdownTimeout);
+    console.log('✅ Graceful shutdown completed');
+    process.exit(0);
+
+  } catch (error) {
+    clearTimeout(shutdownTimeout);
+    console.error('❌ Error during graceful shutdown:', error);
+    process.exit(1);
+  }
+};
+
+// Enhanced signal handlers
+const setupGracefulShutdown = (): void => {
+  // Handle different termination signals
+  process.on('SIGINT', () => performGracefulShutdown('SIGINT'));   // Ctrl+C
+  process.on('SIGTERM', () => performGracefulShutdown('SIGTERM')); // Termination request
+  process.on('SIGQUIT', () => performGracefulShutdown('SIGQUIT')); // Quit request
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+    performGracefulShutdown('uncaughtException');
+  });
+
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+    performGracefulShutdown('unhandledRejection');
+  });
+
+  // Handle nodemon restart (SIGUSR2)
+  process.once('SIGUSR2', () => {
+    console.log('🔄 Nodemon restart detected...');
+    performGracefulShutdown('SIGUSR2').then(() => {
+      process.kill(process.pid, 'SIGUSR2');
+    });
+  });
+};
+
+// Start the server
+const main = async (): Promise<void> => {
+  console.log('🔥 Starting SLI Inspire Server...');
+  console.log(`📅 Started at: ${new Date().toISOString()}`);
+  
+  // Setup graceful shutdown handlers
+  setupGracefulShutdown();
+  
+  // Start the server
+  await startServer();
+};
+
+// Execute main function
+main().catch((error) => {
+  console.error('❌ Failed to start application:', error);
+  process.exit(1);
 });

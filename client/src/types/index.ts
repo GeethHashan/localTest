@@ -177,21 +177,15 @@ export interface BaseComponentProps {
 
 // Event types for calendar/news
 export interface NewsEvent {
+  creator: any;
+  location: any;
+  endDate: any;
   id: string;
   title: string;
   date: string;
-  endDate?: string;           // Add this
   type: 'application' | 'exam' | 'result' | 'general';
   description: string;
-  location?: string;          // Add this
-  isPublic?: boolean;         // Add this
   hasReminder: boolean;
-  creator?: {                 // Add this
-    id: number;
-    firstName?: string;
-    lastName?: string;
-    email: string;
-  };
 }
 
 export interface Reminder {
